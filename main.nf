@@ -234,7 +234,7 @@ switch (params.panel) {
     default: 
         reads_pattern_cram="*{-,.,_}{WG3,WG4,A_WG4,LIB,WG4_CNV,WGSmerged}{-,.,_}*.cram";
         reads_pattern_crai="*{-,.,_}{WG3,WG4,A_WG4,LIB,WG4_CNV,WGSmerged}{-,.,_}*.crai";
-        reads_pattern_fastq="*{-,.,_}{WG3,WG4,A_WG4,LIB,WG4_CNV,WGSmerged}{-,.,_}*R{1,2}*{fq,fastq}.gz";
+        reads_pattern_fastq="*{-,.,_}{WG3,WG4,A_WG4,LIB,WG4_CNV,WGSmerged,WGS}{-,.,_}*R{1,2}*{fq,fastq}.gz";
         panelID="WGS"
     break;
 }
@@ -264,7 +264,7 @@ if (!params.samplesheet && params.fastq) {
 
     params.reads="${params.fastq}/${reads_pattern_fastq}"
     //params.reads="${params.fastq}/*{.,_,-}{R1,R2}*.gz"
-
+/*
  Channel
     .fromFilePairs(params.reads, checkIfExists: true)
     .ifEmpty { error "Cannot find any reads matching: ${params.reads}" }
@@ -272,7 +272,7 @@ if (!params.samplesheet && params.fastq) {
     .map { it -> [it[0], file(it[1][0]),file(it[1][1])] }
     .set { read_pairs_ch }
 
-/*
+*/
 
     Channel
     .fromPath(params.reads, checkIfExists: true)
@@ -288,8 +288,8 @@ if (!params.samplesheet && params.fastq) {
 
     sampleid_R1.join(sampleid_R2)
     .set { read_pairs_ch }
-read_pairs_ch.view()
-*/
+
+
 
 }
 
@@ -298,13 +298,15 @@ if (params.samplesheet && params.fastq || params.fastqInput) {
     Channel
     .fromPath(params.reads, checkIfExists: true)
     .filter {it =~/_R1_/}
-    .map { tuple(it.baseName.tokenize('-').get(0),it) }
+    //.map { tuple(it.baseName.tokenize('-').get(0),it) }
+    .map { tuple(it.baseName.tokenize('-').get(0)+"_"+it.baseName.tokenize('-').get(1),it) }
     .set { sampleid_R1}
 
     Channel
     .fromPath(params.reads, checkIfExists: true)
     .filter {it =~/_R2_/}
-    .map { tuple(it.baseName.tokenize('-').get(0),it) }
+    .map { tuple(it.baseName.tokenize('-').get(0)+"_"+it.baseName.tokenize('-').get(1),it) }
+    //.map { tuple(it.baseName.tokenize('-').get(0),it) }
     .set { sampleid_R2 }
 
     sampleid_R1.join(sampleid_R2)
@@ -317,7 +319,7 @@ if (params.samplesheet && params.fastq || params.fastqInput) {
 
 
 
-
+/*
 if (params.cram && !params.panel) {
 
     cramfiles="${params.cram}/${reads_pattern_cram}"
@@ -333,9 +335,9 @@ if (params.cram && !params.panel) {
     .map { tuple(it.baseName.tokenize('_').get(0),it) }
     .set {sampleID_crai }
 }
-
+*/
 //if (params.cram && (params.panel || params.samplesheet)) {
-    if (params.cram && params.panel) {
+    if (params.cram) { //&& params.panel
     cramfiles="${params.cram}/${reads_pattern_cram}"
     craifiles="${params.cram}/${reads_pattern_crai}"
 
