@@ -549,9 +549,9 @@ workflow {
 }
 
 
-
 workflow.onComplete {
-    // only send email if --nomail is not specified, the user is mmaj or raspau and duration is longer than 5 minutes / 300000 milliseconds
+    // Only send email if --nomail is not specified, the user is mmaj or raspau, and duration is longer than 5 minutes / 300000 milliseconds
+    def currentYear = new Date().format('yyyy')
     if (!params.nomail && workflow.duration > 300000 && workflow.success) {
         if (System.getenv("USER") in ["raspau", "mmaj"]) {
             def sequencingRun = params.cram ? new File(params.cram).getName().take(6) :
@@ -567,7 +567,7 @@ workflow.onComplete {
                 }
             }
 
-            def workDirMessage = params.keepwork ? "WorkDir             : ${workflow.workDir}" : "WorkDir             : Deleted"
+            def workDirMessage = params.keepwork ? "WorkDir: ${workflow.workDir}" : "WorkDir: Deleted"
 
             // Correctly set the outputDir
             def outputDir = "${launchDir}/${launchDir.baseName}.Results"
@@ -575,28 +575,67 @@ workflow.onComplete {
             def body = """\
             Pipeline execution summary
             ---------------------------
-            Pipeline completed  : ${params.panel}
-            Sequencing run      : ${sequencingRun}${obsSampleMessage}
-            Duration            : ${workflow.duration}
-            Success             : ${workflow.success}
+            Pipeline completed: ${params.panel}
+            Sequencing run: ${sequencingRun}${obsSampleMessage}
+            Duration: ${workflow.duration}
+            Success: ${workflow.success}
             ${workDirMessage}
-            OutputDir           : ${outputDir}
-            Exit status         : ${workflow.exitStatus}
+            OutputDir: ${outputDir}
+            Exit status: ${workflow.exitStatus}
             ${obsSampleMessage}
             """.stripIndent()
 
-            // Send the email using the built-in sendMail function
-            sendMail(to: 'Andreas.Braae.Holmgaard@rsyd.dk,Annabeth.Hogh.Petersen@rsyd.dk,Isabella.Almskou@rsyd.dk,Jesper.Graakjaer@rsyd.dk,Lene.Bjornkjaer@rsyd.dk,Martin.Sokol@rsyd.dk,Mads.Jorgensen@rsyd.dk,Rasmus.Hojrup.Pausgaard@rsyd.dk,Signe.Skou.Tofteng@rsyd.dk', subject: 'GermlineNGS pipeline Update', body: body)
+            // Construct the email sending command
+            def subject = 'GermlineNGS pipeline Update'
+            def recipients = 'Andreas.Braae.Holmgaard@rsyd.dk,Annabeth.Hogh.Petersen@rsyd.dk,Isabella.Almskou@rsyd.dk,Jesper.Graakjaer@rsyd.dk,Lene.Bjornkjaer@rsyd.dk,Martin.Sokol@rsyd.dk,Mads.Jorgensen@rsyd.dk,Rasmus.Hojrup.Pausgaard@rsyd.dk,Signe.Skou.Tofteng@rsyd.dk'
+            def emailCommand = "ssh 10.163.117.64 'echo \"${body}\" | mail -s \"${subject}\" ${recipients}'"
+            def emailProcess = ['bash', '-c', emailCommand].execute()
+            emailProcess.waitFor()
+
+            if (emailProcess.exitValue() != 0) {
+                println("Error sending email from remote server: ${emailProcess.err.text}")
+            } else {
+                println("Email successfully sent from remote server.")
+            }
 
             // Check if --keepwork was specified
             if (!params.keepwork) {
                 // If --keepwork was not specified, delete the work directory
                 println("Deleting work directory: ${workflow.workDir}")
-                "rm -rf ${workflow.workDir}".execute()
+                def deleteWorkDirCommand = "rm -rf ${workflow.workDir}".execute()
+                deleteWorkDirCommand.waitFor()
+                if (deleteWorkDirCommand.exitValue() != 0) {
+                    println("Error deleting work directory: ${deleteWorkDirCommand.err.text}")
+                }
+            }
+
+            // Move WGS.CNV from lnx02 to lnx01
+            if (params.server == 'lnx02' && params.panel == 'WGS_CNV' && workflow.success) {
+                def moveWGSCNVCommand = "mv ${launchDir} /lnx01_data2/shared/patients/hg38/WGS.CNV/${currentYear}/"
+                def moveWGSCNVProcess = ['bash', '-c', moveWGSCNVCommand].execute()
+                moveWGSCNVProcess.waitFor()
+
+                if (moveWGSCNVProcess.exitValue() != 0) {
+                    println("Error moving WGS_CNV files: ${moveWGSCNVProcess.err.text}")
+                } 
+            }
+
+            // Move WES from lnx02 to lnx01
+            if (params.server == 'lnx02' && params.panel == 'WES' && workflow.success) {
+                def moveWESCommand = "mv ${launchDir} /lnx01_data2/shared/patients/hg38/WES_ALM_ONK/${currentYear}/"
+                def moveWESProcess = ['bash', '-c', moveWESCommand].execute()
+                moveWESProcess.waitFor()
+
+                if (moveWESProcess.exitValue() != 0) {
+                    println("Error moving WES files: ${moveWESProcess.err.text}")
+                }
             }
         }
-    }    
+    }
 }
+
+
+
 
 workflow.onError {
     // Custom message to be sent when the workflow completes
