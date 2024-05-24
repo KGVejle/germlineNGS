@@ -550,8 +550,28 @@ workflow {
 
 
 workflow.onComplete {
-    // Only send email if --nomail is not specified, the user is mmaj or raspau, and duration is longer than 5 minutes / 300000 milliseconds
+    // Determine the current year dynamically
     def currentYear = new Date().format('yyyy')
+    
+    // Read IP address from file
+    def ipFilePath = '/lnx01_data2/shared/testdata/test_scripts/ip_file'
+    def ip = ""
+
+
+    def dirListingCommand = "ls -l /lnx01_data2/shared/testdata/test_scripts".execute()
+    def dirListing = dirListingCommand.text
+    
+
+    if (new File(ipFilePath).exists()) {
+        println("IP file exists. Reading IP address.")
+        ip = new File(ipFilePath).text.trim()
+        println("IP address read from file: ${ip}")
+    } else {
+        println("Error: IP address file not found at ${ipFilePath}")
+        return
+    }
+
+    // Only send email if --nomail is not specified, the user is mmaj or raspau, and duration is longer than 5 minutes / 300000 milliseconds
     if (!params.nomail && workflow.duration > 300000 && workflow.success) {
         if (System.getenv("USER") in ["raspau", "mmaj"]) {
             def sequencingRun = params.cram ? new File(params.cram).getName().take(6) :
@@ -588,7 +608,7 @@ workflow.onComplete {
             // Construct the email sending command
             def subject = 'GermlineNGS pipeline Update'
             def recipients = 'Andreas.Braae.Holmgaard@rsyd.dk,Annabeth.Hogh.Petersen@rsyd.dk,Isabella.Almskou@rsyd.dk,Jesper.Graakjaer@rsyd.dk,Lene.Bjornkjaer@rsyd.dk,Martin.Sokol@rsyd.dk,Mads.Jorgensen@rsyd.dk,Rasmus.Hojrup.Pausgaard@rsyd.dk,Signe.Skou.Tofteng@rsyd.dk'
-            def emailCommand = "ssh 10.163.117.64 'echo \"${body}\" | mail -s \"${subject}\" ${recipients}'"
+            def emailCommand = "ssh ${ip} 'echo \"${body}\" | mail -s \"${subject}\" ${recipients}'"
             def emailProcess = ['bash', '-c', emailCommand].execute()
             emailProcess.waitFor()
 
@@ -633,7 +653,6 @@ workflow.onComplete {
         }
     }
 }
-
 
 
 
