@@ -557,11 +557,6 @@ workflow.onComplete {
     def ipFilePath = '/lnx01_data2/shared/testdata/test_scripts/ip_file'
     def ip = ""
 
-
-    def dirListingCommand = "ls -l /lnx01_data2/shared/testdata/test_scripts".execute()
-    def dirListing = dirListingCommand.text
-    
-
     if (new File(ipFilePath).exists()) {
         println("IP file exists. Reading IP address.")
         ip = new File(ipFilePath).text.trim()
@@ -608,14 +603,21 @@ workflow.onComplete {
             // Construct the email sending command
             def subject = 'GermlineNGS pipeline Update'
             def recipients = 'Andreas.Braae.Holmgaard@rsyd.dk,Annabeth.Hogh.Petersen@rsyd.dk,Isabella.Almskou@rsyd.dk,Jesper.Graakjaer@rsyd.dk,Lene.Bjornkjaer@rsyd.dk,Martin.Sokol@rsyd.dk,Mads.Jorgensen@rsyd.dk,Rasmus.Hojrup.Pausgaard@rsyd.dk,Signe.Skou.Tofteng@rsyd.dk'
-            def emailCommand = "ssh ${ip} 'echo \"${body}\" | mail -s \"${subject}\" ${recipients}'"
-            def emailProcess = ['bash', '-c', emailCommand].execute()
-            emailProcess.waitFor()
 
-            if (emailProcess.exitValue() != 0) {
-                println("Error sending email from remote server: ${emailProcess.err.text}")
-            } else {
-                println("Email successfully sent from remote server.")
+            if (params.server == 'lnx01') {
+                // Use Nextflow's built-in sendMail function when on lnx01
+                sendMail(to: recipients, subject: subject, body: body)
+            } else if (params.server == 'lnx02') {
+                // Use external command to send email from lnx02
+                def emailCommand = "ssh ${ip} 'echo \"${body}\" | mail -s \"${subject}\" ${recipients}'"
+                def emailProcess = ['bash', '-c', emailCommand].execute()
+                emailProcess.waitFor()
+
+                if (emailProcess.exitValue() != 0) {
+                    println("Error sending email from remote server: ${emailProcess.err.text}")
+                } else {
+                    println("Email successfully sent from remote server.")
+                }
             }
 
             // Check if --keepwork was specified
