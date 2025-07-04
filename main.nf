@@ -607,7 +607,7 @@ workflow.onComplete {
             if (params.server == 'lnx02') {
                 // Use Nextflow's built-in sendMail function when on lnx01
                 sendMail(to: recipients, subject: subject, body: body)
-            /*} else if (params.server == 'lnx02') {
+            } /*else if (params.server == 'lnx02') {
                 // Use external command to send email from lnx02
                 def emailCommand = "ssh ${ip} 'echo \"${body}\" | mail -s \"${subject}\" ${recipients}'"
                 def emailProcess = ['bash', '-c', emailCommand].execute()
